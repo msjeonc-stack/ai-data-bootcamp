@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>변수를 더하면 R²는 어떻게 될까</title>
+<style>
+  :root{
+    --paper:#F6F3EC; --ink:#1E2A32; --teal:#2E6B62; --amber:#C6842E;
+    --muted:#7C8079; --line:#DBD4C4; --card:#FFFFFF; --off:#EFEBE0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;
+    line-height:1.6;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;}
+  .wrap{max-width:820px; margin:0 auto; padding:56px 28px 80px;}
+  .eyebrow{
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--teal); font-weight:700; margin-bottom:14px;
+  }
+  h1{
+    font-size:32px; font-weight:400; margin:0 0 14px; line-height:1.35;
+    font-family:Georgia,"Nanum Myeongjo",serif;
+  }
+  .sub{font-size:15px; color:#3E4750; max-width:620px; margin-bottom:36px;}
+
+  .stage{
+    display:grid; grid-template-columns: 1fr 1fr;
+    gap:24px; margin-bottom:28px;
+  }
+  @media (max-width:640px){ .stage{grid-template-columns:1fr;} }
+
+  .panel{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:26px 24px;
+  }
+  .panel h2{
+    font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); font-weight:700; margin:0 0 16px;
+  }
+
+  .btn-list{display:flex; flex-direction:column; gap:10px;}
+  .var-btn{
+    display:flex; align-items:center; gap:12px;
+    border:1px solid var(--line); background:var(--paper);
+    border-radius:8px; padding:12px 14px; cursor:pointer;
+    text-align:left; font-size:14.5px; color:var(--ink);
+    transition: all .18s ease;
+  }
+  .var-btn:hover{border-color:var(--teal);}
+  .var-btn .chk{
+    width:20px; height:20px; border-radius:5px; border:2px solid var(--muted);
+    flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:transparent; transition:all .18s ease;
+  }
+  .var-btn.active{
+    background:#E9F0EC; border-color:var(--teal);
+  }
+  .var-btn.active .chk{
+    background:var(--teal); border-color:var(--teal); color:#fff;
+  }
+  .var-btn .vname{font-weight:600;}
+  .var-btn .vdesc{display:block; font-size:12px; color:var(--muted); font-weight:400; margin-top:1px;}
+
+  .base-tag{
+    display:inline-block; font-size:11px; background:var(--off); color:var(--muted);
+    padding:4px 10px; border-radius:20px; margin-bottom:16px; font-weight:600;
+  }
+
+  /* result panel */
+  .r2-display{
+    text-align:center; padding:8px 0 4px;
+  }
+  .r2-number{
+    font-size:64px; font-weight:700; color:var(--ink);
+    transition: color .3s ease;
+  }
+  .r2-number.up{color:var(--amber);}
+  .r2-label{font-size:13px; color:var(--muted); margin-bottom:20px;}
+
+  .track{
+    height:22px; background:var(--off); border-radius:5px; overflow:hidden; margin-bottom:6px;
+  }
+  .fill{
+    height:100%; width:0%; border-radius:5px;
+    background:linear-gradient(90deg, var(--teal), #3F8477);
+    transition: width .6s cubic-bezier(.2,.8,.2,1);
+  }
+  .fill.increased{background:linear-gradient(90deg, var(--amber), #D9A15C);}
+  .track-caption{display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:22px;}
+
+  .diff-row{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:13px; padding:10px 0; border-top:1px solid var(--line);
+  }
+  .diff-row .diff-label{color:var(--muted);}
+  .diff-row .diff-val{font-weight:700; font-family:ui-monospace,monospace;}
+  .diff-val.pos{color:var(--teal);}
+  .diff-val.zero{color:var(--muted);}
+
+  .formula-box{
+    margin-top:22px; padding:14px 16px; background:var(--paper);
+    border-radius:6px; font-size:13px; color:var(--ink);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    word-break:break-word;
+  }
+  .formula-box .fkey{color:var(--teal); font-weight:600;}
+
+  .note{
+    margin-top:28px; padding:18px 20px; background:#F1ECDD;
+    border-left:3px solid var(--amber); border-radius:0 6px 6px 0;
+    font-size:14px; color:#3E3626;
+  }
+  #hint{font-size:13px; color:var(--muted); margin-top:14px; min-height:18px;}
+
+  /* slope panel (추가) */
+  .slope-panel{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:26px 24px; margin-bottom:28px;
+  }
+  .slope-panel h2{
+    font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); font-weight:700; margin:0 0 4px;
+  }
+  .slope-panel .slope-sub{
+    font-size:13px; color:var(--muted); margin-bottom:22px;
+  }
+  .slope-row{
+    display:grid; grid-template-columns: 150px 1fr 110px;
+    align-items:center; gap:16px;
+  }
+  .slope-row-label{font-size:13px; color:var(--muted);}
+  .slope-track{
+    position:relative; height:34px; background:var(--off); border-radius:6px; overflow:visible;
+  }
+  .slope-scale-line{
+    position:absolute; top:-6px; bottom:-6px; width:1px; background:rgba(30,42,50,0.18);
+  }
+  .slope-fill{
+    height:100%; width:0%; border-radius:6px;
+    background:linear-gradient(90deg, #4A5A64, var(--ink));
+    transition: width .6s cubic-bezier(.2,.8,.2,1);
+    position:relative;
+  }
+  .slope-fill.shrunk{background:linear-gradient(90deg, #C7592E, #B0503F);}
+  .slope-value{font-size:20px; font-weight:700; text-align:right; font-family:ui-monospace,monospace;}
+  .slope-value .unit{font-size:12px; font-weight:400; color:var(--muted); margin-left:2px;}
+  .slope-caption{
+    display:flex; justify-content:space-between; font-size:11px; color:var(--muted);
+    margin-top:8px;
+  }
+  .slope-explain{
+    margin-top:16px; font-size:13.5px; color:#3E4750; padding-top:14px; border-top:1px solid var(--line);
+  }
+  .slope-explain strong{color:var(--ink);}
+
+  /* 산점도+회귀선 패널 (추가) */
+  .scatter-panel{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:26px 24px; margin-bottom:28px;
+  }
+  .scatter-panel h2{
+    font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); font-weight:700; margin:0 0 4px;
+  }
+  .scatter-sub{font-size:13px; color:var(--muted); margin-bottom:18px;}
+  #scatterSvg{width:100%; height:auto; display:block;}
+  .scatter-legend{
+    display:flex; gap:16px; flex-wrap:wrap; margin-top:14px; font-size:12.5px; color:var(--ink);
+  }
+  .legend-item{display:flex; align-items:center; gap:6px;}
+  .legend-dot{width:10px; height:10px; border-radius:50%; display:inline-block;}
+  .legend-line{width:16px; height:2px; display:inline-block;}
+  .scatter-note{font-size:11.5px; color:var(--muted); margin-top:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">문제 5 · 심화 · 인터랙티브</div>
+  <h1>변수를 하나씩 눌러 추가하면서<br>R²가 어떻게 움직이는지 직접 확인해보자.</h1>
+  <p class="sub">
+    기본 모델은 항상 <span class="mono">flipper_length_mm</span> (날개길이) 하나만 쓴 상태에서 시작한다.
+    아래 버튼을 눌러 변수를 켜고 끄면서, 어떤 조합이 R²를 가장 많이 끌어올리는지 실험해보자. (n=333)
+  </p>
+
+  <div class="stage">
+    <div class="panel">
+      <h2>변수 추가하기</h2>
+      <div class="base-tag mono">base: flipper_length_mm</div>
+      <div class="btn-list" id="btnList"></div>
+      <div id="hint"></div>
+    </div>
+
+    <div class="panel">
+      <h2>결과</h2>
+      <div class="r2-display">
+        <div class="r2-number mono" id="r2num">0.762</div>
+        <div class="r2-label">R-squared</div>
+      </div>
+      <div class="track"><div class="fill" id="fill"></div></div>
+      <div class="track-caption"><span>0.0</span><span>1.0</span></div>
+
+      <div class="diff-row">
+        <span class="diff-label">직전 대비 변화</span>
+        <span class="diff-val zero mono" id="diffVal">—</span>
+      </div>
+      <div class="diff-row">
+        <span class="diff-label">Adj. R²</span>
+        <span class="diff-val mono" id="adjR2">0.761</span>
+      </div>
+      <div class="diff-row" style="border-bottom:none;">
+        <span class="diff-label">설명변수 개수 (k)</span>
+        <span class="diff-val mono" id="kVal">1</span>
+      </div>
+
+      <div class="formula-box" id="formulaBox">
+        body_mass_g ~ <span class="fkey">flipper_length_mm</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="dynamicNote">
+    아직 아무 변수도 추가하지 않았다 — 왼쪽에서 하나 눌러보자.
+  </div>
+
+  <!-- 기울기 변화 패널 (추가) -->
+  <div class="slope-panel">
+    <h2>flipper_length_mm 기울기 변화</h2>
+    <div class="slope-sub">R²는 오를수록 좋지만, 기울기는 "날개길이의 순수한 효과"가 얼마나 남아있는지를 보여준다.</div>
+
+    <div class="slope-row">
+      <div class="slope-row-label">기울기 (β)</div>
+      <div class="slope-track">
+        <div class="slope-scale-line" style="left:91.2%;"></div>
+        <div class="slope-fill" id="slopeFill"></div>
+      </div>
+      <div class="slope-value mono" id="slopeVal">50.15<span class="unit">g/mm</span></div>
+    </div>
+    <div class="slope-caption"><span>0</span><span>50.15 (기준선, 기본 모델)</span><span>55</span></div>
+
+    <div class="slope-explain" id="slopeExplain">
+      아직 변수가 없다 — 기울기 50.15는 날개길이 하나만 봤을 때의 값이다. 여기엔 다른 변수(종, 성별 등)의 효과가 섞여 있다.
+    </div>
+  </div>
+
+  <!-- 산점도 + 회귀선 패널 (추가) -->
+  <div class="scatter-panel">
+    <h2>산점도 위의 회귀선</h2>
+    <div class="scatter-sub">점: 실제 펭귄 333마리 · 선: 현재 조합의 회귀식이 그리는 직선(들)</div>
+    <svg id="scatterSvg" viewBox="0 0 640 400" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="scatter-legend" id="scatterLegend"></div>
+    <div class="scatter-note" id="scatterNote"></div>
+  </div>
+</div>
+
+<script>
+// 사전 계산된 R² 결과 (statsmodels OLS, n=333, 결측치 완전 제거)
+const results = {
+"none": {"r2":0.7621,"adj_r2":0.7614,"k":1,"slope":50.153},
+"species": {"r2":0.787,"adj_r2":0.7851,"k":3,"slope":40.606},
+"sex": {"r2":0.8058,"adj_r2":0.8047,"k":2,"slope":46.982},
+"bill_length_mm": {"r2":0.7627,"adj_r2":0.7613,"k":2,"slope":48.89},
+"bill_depth_mm": {"r2":0.7637,"adj_r2":0.7622,"k":2,"slope":51.767},
+"island": {"r2":0.7781,"adj_r2":0.776,"k":3,"slope":44.89},
+"sex,species": {"r2":0.8669,"adj_r2":0.8653,"k":4,"slope":20.025},
+"bill_length_mm,species": {"r2":0.8243,"adj_r2":0.8222,"k":4,"slope":27.544},
+"bill_depth_mm,species": {"r2":0.8356,"adj_r2":0.8336,"k":4,"slope":25.526},
+"island,species": {"r2":0.7884,"adj_r2":0.7851,"k":5,"slope":41.089},
+"bill_length_mm,sex": {"r2":0.8065,"adj_r2":0.8047,"k":3,"slope":48.209},
+"bill_depth_mm,sex": {"r2":0.8229,"adj_r2":0.8213,"k":3,"slope":38.19},
+"island,sex": {"r2":0.8339,"adj_r2":0.8319,"k":4,"slope":39.3},
+"bill_depth_mm,bill_length_mm": {"r2":0.7639,"adj_r2":0.7618,"k":3,"slope":50.762},
+"bill_length_mm,island": {"r2":0.784,"adj_r2":0.7814,"k":4,"slope":39.656},
+"bill_depth_mm,island": {"r2":0.7885,"adj_r2":0.7859,"k":4,"slope":47.397},
+"bill_length_mm,sex,species": {"r2":0.8705,"adj_r2":0.8685,"k":5,"slope":17.847},
+"bill_depth_mm,sex,species": {"r2":0.8724,"adj_r2":0.8705,"k":5,"slope":17.544},
+"island,sex,species": {"r2":0.8672,"adj_r2":0.8647,"k":6,"slope":20.316},
+"bill_depth_mm,bill_length_mm,species": {"r2":0.8495,"adj_r2":0.8472,"k":5,"slope":20.226},
+"bill_length_mm,island,species": {"r2":0.8251,"adj_r2":0.8219,"k":6,"slope":27.963},
+"bill_depth_mm,island,species": {"r2":0.8365,"adj_r2":0.8335,"k":6,"slope":25.948},
+"bill_depth_mm,bill_length_mm,sex": {"r2":0.823,"adj_r2":0.8208,"k":4,"slope":38.826},
+"bill_length_mm,island,sex": {"r2":0.8346,"adj_r2":0.832,"k":5,"slope":37.638},
+"bill_depth_mm,island,sex": {"r2":0.8386,"adj_r2":0.8361,"k":5,"slope":35.693},
+"bill_depth_mm,bill_length_mm,island": {"r2":0.7924,"adj_r2":0.7892,"k":5,"slope":42.895},
+"bill_depth_mm,bill_length_mm,sex,species": {"r2":0.875,"adj_r2":0.8727,"k":6,"slope":15.95},
+"bill_length_mm,island,sex,species": {"r2":0.8707,"adj_r2":0.868,"k":7,"slope":18.138},
+"bill_depth_mm,island,sex,species": {"r2":0.8727,"adj_r2":0.87,"k":7,"slope":17.849},
+"bill_depth_mm,bill_length_mm,island,species": {"r2":0.8503,"adj_r2":0.8471,"k":7,"slope":20.578},
+"bill_depth_mm,bill_length_mm,island,sex": {"r2":0.8393,"adj_r2":0.8363,"k":6,"slope":33.939},
+"bill_depth_mm,bill_length_mm,island,sex,species": {"r2":0.8752,"adj_r2":0.8721,"k":8,"slope":16.239}
+};
+
+const vars = [
+  {key:"species", name:"species · 종", desc:"Adelie / Chinstrap / Gentoo"},
+  {key:"sex", name:"sex · 성별", desc:"수컷 / 암컷"},
+  {key:"bill_length_mm", name:"bill_length_mm · 부리 길이", desc:"연속형"},
+  {key:"bill_depth_mm", name:"bill_depth_mm · 부리 두께", desc:"연속형"},
+  {key:"island", name:"island · 서식 섬", desc:"Torgersen / Biscoe / Dream"},
+];
+
+let active = new Set();
+let lastR2 = results["none"].r2;
+
+// ===== 산점도 + 회귀선 (추가) =====
+// 포인트: [flipper_length_mm, body_mass_g, species(A/C/G), sex(F/M), island(B/D/T)]
+const PTS = [[181.0, 3750, "A", "M", "T"], [186.0, 3800, "A", "F", "T"], [195.0, 3250, "A", "F", "T"], [193.0, 3450, "A", "F", "T"], [190.0, 3650, "A", "M", "T"], [181.0, 3625, "A", "F", "T"], [195.0, 4675, "A", "M", "T"], [182.0, 3200, "A", "F", "T"], [191.0, 3800, "A", "M", "T"], [198.0, 4400, "A", "M", "T"], [185.0, 3700, "A", "F", "T"], [195.0, 3450, "A", "F", "T"], [197.0, 4500, "A", "M", "T"], [184.0, 3325, "A", "F", "T"], [194.0, 4200, "A", "M", "T"], [174.0, 3400, "A", "F", "B"], [180.0, 3600, "A", "M", "B"], [189.0, 3800, "A", "F", "B"], [185.0, 3950, "A", "M", "B"], [180.0, 3800, "A", "M", "B"], [187.0, 3800, "A", "F", "B"], [183.0, 3550, "A", "M", "B"], [187.0, 3200, "A", "F", "B"], [172.0, 3150, "A", "F", "B"], [180.0, 3950, "A", "M", "B"], [178.0, 3250, "A", "F", "D"], [178.0, 3900, "A", "M", "D"], [188.0, 3300, "A", "F", "D"], [184.0, 3900, "A", "M", "D"], [195.0, 3325, "A", "F", "D"], [196.0, 4150, "A", "M", "D"], [190.0, 3950, "A", "M", "D"], [180.0, 3550, "A", "F", "D"], [181.0, 3300, "A", "F", "D"], [184.0, 4650, "A", "M", "D"], [182.0, 3150, "A", "F", "D"], [195.0, 3900, "A", "M", "D"], [186.0, 3100, "A", "F", "D"], [196.0, 4400, "A", "M", "D"], [185.0, 3000, "A", "F", "D"], [190.0, 4600, "A", "M", "D"], [182.0, 3425, "A", "M", "D"], [190.0, 3450, "A", "F", "D"], [191.0, 4150, "A", "M", "D"], [186.0, 3500, "A", "F", "B"], [188.0, 4300, "A", "M", "B"], [190.0, 3450, "A", "F", "B"], [200.0, 4050, "A", "M", "B"], [187.0, 2900, "A", "F", "B"], [191.0, 3700, "A", "M", "B"], [186.0, 3550, "A", "F", "B"], [193.0, 3800, "A", "M", "B"], [181.0, 2850, "A", "F", "B"], [194.0, 3750, "A", "M", "B"], [185.0, 3150, "A", "F", "B"], [195.0, 4400, "A", "M", "B"], [185.0, 3600, "A", "F", "B"], [192.0, 4050, "A", "M", "B"], [184.0, 2850, "A", "F", "B"], [192.0, 3950, "A", "M", "B"], [195.0, 3350, "A", "F", "B"], [188.0, 4100, "A", "M", "B"], [190.0, 3050, "A", "F", "T"], [198.0, 4450, "A", "M", "T"], [190.0, 3600, "A", "F", "T"], [190.0, 3900, "A", "M", "T"], [196.0, 3550, "A", "F", "T"], [197.0, 4150, "A", "M", "T"], [190.0, 3700, "A", "F", "T"], [195.0, 4250, "A", "M", "T"], [191.0, 3700, "A", "F", "T"], [184.0, 3900, "A", "M", "T"], [187.0, 3550, "A", "F", "T"], [195.0, 4000, "A", "M", "T"], [189.0, 3200, "A", "F", "T"], [196.0, 4700, "A", "M", "T"], [187.0, 3800, "A", "F", "T"], [193.0, 4200, "A", "M", "T"], [191.0, 3350, "A", "F", "D"], [194.0, 3550, "A", "M", "D"], [190.0, 3800, "A", "M", "D"], [189.0, 3500, "A", "F", "D"], [189.0, 3950, "A", "M", "D"], [190.0, 3600, "A", "F", "D"], [202.0, 3550, "A", "F", "D"], [205.0, 4300, "A", "M", "D"], [185.0, 3400, "A", "F", "D"], [186.0, 4450, "A", "M", "D"], [187.0, 3300, "A", "F", "D"], [208.0, 4300, "A", "M", "D"], [190.0, 3700, "A", "F", "D"], [196.0, 4350, "A", "M", "D"], [178.0, 2900, "A", "F", "D"], [192.0, 4100, "A", "M", "D"], [192.0, 3725, "A", "F", "B"], [203.0, 4725, "A", "M", "B"], [183.0, 3075, "A", "F", "B"], [190.0, 4250, "A", "M", "B"], [193.0, 2925, "A", "F", "B"], [184.0, 3550, "A", "M", "B"], [199.0, 3750, "A", "F", "B"], [190.0, 3900, "A", "M", "B"], [181.0, 3175, "A", "F", "B"], [197.0, 4775, "A", "M", "B"], [198.0, 3825, "A", "F", "B"], [191.0, 4600, "A", "M", "B"], [193.0, 3200, "A", "F", "B"], [197.0, 4275, "A", "M", "B"], [191.0, 3900, "A", "F", "B"], [196.0, 4075, "A", "M", "B"], [188.0, 2900, "A", "F", "T"], [199.0, 3775, "A", "M", "T"], [189.0, 3350, "A", "F", "T"], [189.0, 3325, "A", "M", "T"], [187.0, 3150, "A", "F", "T"], [198.0, 3500, "A", "M", "T"], [176.0, 3450, "A", "F", "T"], [202.0, 3875, "A", "M", "T"], [186.0, 3050, "A", "F", "T"], [199.0, 4000, "A", "M", "T"], [191.0, 3275, "A", "F", "T"], [195.0, 4300, "A", "M", "T"], [191.0, 3050, "A", "F", "T"], [210.0, 4000, "A", "M", "T"], [190.0, 3325, "A", "F", "T"], [197.0, 3500, "A", "M", "T"], [193.0, 3500, "A", "F", "D"], [199.0, 4475, "A", "M", "D"], [187.0, 3425, "A", "F", "D"], [190.0, 3900, "A", "M", "D"], [191.0, 3175, "A", "F", "D"], [200.0, 3975, "A", "M", "D"], [185.0, 3400, "A", "F", "D"], [193.0, 4250, "A", "M", "D"], [193.0, 3400, "A", "F", "D"], [187.0, 3475, "A", "M", "D"], [188.0, 3050, "A", "F", "D"], [190.0, 3725, "A", "M", "D"], [192.0, 3000, "A", "F", "D"], [185.0, 3650, "A", "M", "D"], [190.0, 4250, "A", "M", "D"], [184.0, 3475, "A", "F", "D"], [195.0, 3450, "A", "F", "D"], [193.0, 3750, "A", "M", "D"], [187.0, 3700, "A", "F", "D"], [201.0, 4000, "A", "M", "D"], [192.0, 3500, "C", "F", "D"], [196.0, 3900, "C", "M", "D"], [193.0, 3650, "C", "M", "D"], [188.0, 3525, "C", "F", "D"], [197.0, 3725, "C", "M", "D"], [198.0, 3950, "C", "F", "D"], [178.0, 3250, "C", "F", "D"], [197.0, 3750, "C", "M", "D"], [195.0, 4150, "C", "F", "D"], [198.0, 3700, "C", "M", "D"], [193.0, 3800, "C", "F", "D"], [194.0, 3775, "C", "M", "D"], [185.0, 3700, "C", "F", "D"], [201.0, 4050, "C", "M", "D"], [190.0, 3575, "C", "F", "D"], [201.0, 4050, "C", "M", "D"], [197.0, 3300, "C", "M", "D"], [181.0, 3700, "C", "F", "D"], [190.0, 3450, "C", "F", "D"], [195.0, 4400, "C", "M", "D"], [181.0, 3600, "C", "F", "D"], [191.0, 3400, "C", "M", "D"], [187.0, 2900, "C", "F", "D"], [193.0, 3800, "C", "M", "D"], [195.0, 3300, "C", "F", "D"], [197.0, 4150, "C", "M", "D"], [200.0, 3400, "C", "F", "D"], [200.0, 3800, "C", "M", "D"], [191.0, 3700, "C", "F", "D"], [205.0, 4550, "C", "M", "D"], [187.0, 3200, "C", "F", "D"], [201.0, 4300, "C", "M", "D"], [187.0, 3350, "C", "F", "D"], [203.0, 4100, "C", "M", "D"], [195.0, 3600, "C", "M", "D"], [199.0, 3900, "C", "F", "D"], [195.0, 3850, "C", "F", "D"], [210.0, 4800, "C", "M", "D"], [192.0, 2700, "C", "F", "D"], [205.0, 4500, "C", "M", "D"], [210.0, 3950, "C", "M", "D"], [187.0, 3650, "C", "F", "D"], [196.0, 3550, "C", "M", "D"], [196.0, 3500, "C", "F", "D"], [196.0, 3675, "C", "F", "D"], [201.0, 4450, "C", "M", "D"], [190.0, 3400, "C", "F", "D"], [212.0, 4300, "C", "M", "D"], [187.0, 3250, "C", "M", "D"], [198.0, 3675, "C", "F", "D"], [199.0, 3325, "C", "F", "D"], [201.0, 3950, "C", "M", "D"], [193.0, 3600, "C", "F", "D"], [203.0, 4050, "C", "M", "D"], [187.0, 3350, "C", "F", "D"], [197.0, 3450, "C", "M", "D"], [191.0, 3250, "C", "F", "D"], [203.0, 4050, "C", "M", "D"], [202.0, 3800, "C", "M", "D"], [194.0, 3525, "C", "F", "D"], [206.0, 3950, "C", "M", "D"], [189.0, 3650, "C", "F", "D"], [195.0, 3650, "C", "F", "D"], [207.0, 4000, "C", "M", "D"], [202.0, 3400, "C", "F", "D"], [193.0, 3775, "C", "M", "D"], [210.0, 4100, "C", "M", "D"], [198.0, 3775, "C", "F", "D"], [211.0, 4500, "G", "F", "B"], [230.0, 5700, "G", "M", "B"], [210.0, 4450, "G", "F", "B"], [218.0, 5700, "G", "M", "B"], [215.0, 5400, "G", "M", "B"], [210.0, 4550, "G", "F", "B"], [211.0, 4800, "G", "F", "B"], [219.0, 5200, "G", "M", "B"], [209.0, 4400, "G", "F", "B"], [215.0, 5150, "G", "M", "B"], [214.0, 4650, "G", "F", "B"], [216.0, 5550, "G", "M", "B"], [214.0, 4650, "G", "F", "B"], [213.0, 5850, "G", "M", "B"], [210.0, 4200, "G", "F", "B"], [217.0, 5850, "G", "M", "B"], [210.0, 4150, "G", "F", "B"], [221.0, 6300, "G", "M", "B"], [209.0, 4800, "G", "F", "B"], [222.0, 5350, "G", "M", "B"], [218.0, 5700, "G", "M", "B"], [215.0, 5000, "G", "F", "B"], [213.0, 4400, "G", "F", "B"], [215.0, 5050, "G", "M", "B"], [215.0, 5000, "G", "F", "B"], [215.0, 5100, "G", "M", "B"], [215.0, 5650, "G", "M", "B"], [210.0, 4600, "G", "F", "B"], [220.0, 5550, "G", "M", "B"], [222.0, 5250, "G", "M", "B"], [209.0, 4700, "G", "F", "B"], [207.0, 5050, "G", "F", "B"], [230.0, 6050, "G", "M", "B"], [220.0, 5150, "G", "F", "B"], [220.0, 5400, "G", "M", "B"], [213.0, 4950, "G", "F", "B"], [219.0, 5250, "G", "M", "B"], [208.0, 4350, "G", "F", "B"], [208.0, 5350, "G", "M", "B"], [208.0, 3950, "G", "F", "B"], [225.0, 5700, "G", "M", "B"], [210.0, 4300, "G", "F", "B"], [216.0, 4750, "G", "M", "B"], [222.0, 5550, "G", "M", "B"], [217.0, 4900, "G", "F", "B"], [210.0, 4200, "G", "F", "B"], [225.0, 5400, "G", "M", "B"], [213.0, 5100, "G", "F", "B"], [215.0, 5300, "G", "M", "B"], [210.0, 4850, "G", "F", "B"], [220.0, 5300, "G", "M", "B"], [210.0, 4400, "G", "F", "B"], [225.0, 5000, "G", "M", "B"], [217.0, 4900, "G", "F", "B"], [220.0, 5050, "G", "M", "B"], [208.0, 4300, "G", "F", "B"], [220.0, 5000, "G", "M", "B"], [208.0, 4450, "G", "F", "B"], [224.0, 5550, "G", "M", "B"], [208.0, 4200, "G", "F", "B"], [221.0, 5300, "G", "M", "B"], [214.0, 4400, "G", "F", "B"], [231.0, 5650, "G", "M", "B"], [219.0, 4700, "G", "F", "B"], [230.0, 5700, "G", "M", "B"], [229.0, 5800, "G", "M", "B"], [220.0, 4700, "G", "F", "B"], [223.0, 5550, "G", "M", "B"], [216.0, 4750, "G", "F", "B"], [221.0, 5000, "G", "M", "B"], [221.0, 5100, "G", "M", "B"], [217.0, 5200, "G", "F", "B"], [216.0, 4700, "G", "F", "B"], [230.0, 5800, "G", "M", "B"], [209.0, 4600, "G", "F", "B"], [220.0, 6000, "G", "M", "B"], [215.0, 4750, "G", "F", "B"], [223.0, 5950, "G", "M", "B"], [212.0, 4625, "G", "F", "B"], [221.0, 5450, "G", "M", "B"], [212.0, 4725, "G", "F", "B"], [224.0, 5350, "G", "M", "B"], [212.0, 4750, "G", "F", "B"], [228.0, 5600, "G", "M", "B"], [218.0, 4600, "G", "F", "B"], [218.0, 5300, "G", "M", "B"], [212.0, 4875, "G", "F", "B"], [230.0, 5550, "G", "M", "B"], [218.0, 4950, "G", "F", "B"], [228.0, 5400, "G", "M", "B"], [212.0, 4750, "G", "F", "B"], [224.0, 5650, "G", "M", "B"], [214.0, 4850, "G", "F", "B"], [226.0, 5200, "G", "M", "B"], [216.0, 4925, "G", "M", "B"], [222.0, 4875, "G", "F", "B"], [203.0, 4625, "G", "F", "B"], [225.0, 5250, "G", "M", "B"], [219.0, 4850, "G", "F", "B"], [228.0, 5600, "G", "M", "B"], [215.0, 4975, "G", "F", "B"], [228.0, 5500, "G", "M", "B"], [215.0, 5500, "G", "M", "B"], [210.0, 4700, "G", "F", "B"], [219.0, 5500, "G", "M", "B"], [208.0, 4575, "G", "F", "B"], [209.0, 5500, "G", "M", "B"], [216.0, 5000, "G", "F", "B"], [229.0, 5950, "G", "M", "B"], [213.0, 4650, "G", "F", "B"], [230.0, 5500, "G", "M", "B"], [217.0, 4375, "G", "F", "B"], [230.0, 5850, "G", "M", "B"], [222.0, 6000, "G", "M", "B"], [214.0, 4925, "G", "F", "B"], [215.0, 4850, "G", "F", "B"], [222.0, 5750, "G", "M", "B"], [212.0, 5200, "G", "F", "B"], [213.0, 5400, "G", "M", "B"]];
+
+// 조합별 전체 회귀계수 (statsmodels OLS 결과, 비활성 항은 0으로 채움)
+const PARAMS = {"none": {"Intercept": -5872.0927, "flipper_length_mm": 50.1533, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 0.0, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 0.0, "bill_depth_mm": 0.0}, "species": {"Intercept": -4013.1789, "flipper_length_mm": 40.6062, "species[T.Chinstrap]": -205.3755, "species[T.Gentoo]": 284.5236, "sex[T.Male]": 0.0, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 0.0, "bill_depth_mm": 0.0}, "sex": {"Intercept": -5410.3002, "flipper_length_mm": 46.9822, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 347.8503, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 0.0, "bill_depth_mm": 0.0}, "bill_length_mm": {"Intercept": -5836.2987, "flipper_length_mm": 48.8897, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 0.0, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 4.9586, "bill_depth_mm": 0.0}, "bill_depth_mm": {"Intercept": -6537.5978, "flipper_length_mm": 51.767, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 0.0, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 0.0, "bill_depth_mm": 19.878}, "island": {"Intercept": -4687.8612, "flipper_length_mm": 44.8898, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 0.0, "island[T.Dream]": -265.3651, "island[T.Torgersen]": -201.4608, "bill_length_mm": 0.0, "bill_depth_mm": 0.0}, "sex,species": {"Intercept": -365.8174, "flipper_length_mm": 20.0249, "species[T.Chinstrap]": -87.6345, "species[T.Gentoo]": 836.26, "sex[T.Male]": 530.3811, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 0.0, "bill_depth_mm": 0.0}, "bill_length_mm,species": {"Intercept": -3864.0732, "flipper_length_mm": 27.5443, "species[T.Chinstrap]": -732.4167, "species[T.Gentoo]": 113.2542, "sex[T.Male]": 0.0, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 60.1173, "bill_depth_mm": 0.0}, "bill_depth_mm,species": {"Intercept": -4484.72, "flipper_length_mm": 25.5261, "species[T.Chinstrap]": -132.4478, "species[T.Gentoo]": 1303.3323, "sex[T.Male]": 0.0, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 0.0, "bill_depth_mm": 181.9508}, "island,species": {"Intercept": -4047.8449, "flipper_length_mm": 41.0895, "species[T.Chinstrap]": -210.5494, "species[T.Gentoo]": 214.2001, "sex[T.Male]": 0.0, "island[T.Dream]": -54.8013, "island[T.Torgersen]": -113.5881, "bill_length_mm": 0.0, "bill_depth_mm": 0.0}, "bill_length_mm,sex": {"Intercept": -5433.5336, "flipper_length_mm": 48.2093, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 358.6309, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": -5.2012, "bill_depth_mm": 0.0}, "bill_depth_mm,sex": {"Intercept": -2246.8293, "flipper_length_mm": 38.1896, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 538.08, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 0.0, "bill_depth_mm": -86.9467}, "island,sex": {"Intercept": -3720.0645, "flipper_length_mm": 39.2997, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 399.9747, "island[T.Dream]": -354.8284, "island[T.Torgersen]": -294.2953, "bill_length_mm": 0.0, "bill_depth_mm": 0.0}, "bill_depth_mm,bill_length_mm": {"Intercept": -6445.476, "flipper_length_mm": 50.7621, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 0.0, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 3.2929, "bill_depth_mm": 17.8364}, "bill_length_mm,island": {"Intercept": -4355.0269, "flipper_length_mm": 39.6562, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 0.0, "island[T.Dream]": -333.7163, "island[T.Torgersen]": -190.9595, "bill_length_mm": 16.8828, "bill_depth_mm": 0.0}, "bill_depth_mm,island": {"Intercept": -6114.6654, "flipper_length_mm": 47.397, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 0.0, "island[T.Dream]": -362.1575, "island[T.Torgersen]": -300.4063, "bill_length_mm": 0.0, "bill_depth_mm": 56.6658}, "bill_length_mm,sex,species": {"Intercept": -759.0644, "flipper_length_mm": 17.8465, "species[T.Chinstrap]": -291.7106, "species[T.Gentoo]": 707.028, "sex[T.Male]": 465.395, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 21.6325, "bill_depth_mm": 0.0}, "bill_depth_mm,sex,species": {"Intercept": -1211.5343, "flipper_length_mm": 17.5445, "species[T.Chinstrap]": -78.8989, "species[T.Gentoo]": 1153.9863, "sex[T.Male]": 435.4328, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 0.0, "bill_depth_mm": 74.383}, "island,sex,species": {"Intercept": -390.0077, "flipper_length_mm": 20.3157, "species[T.Chinstrap]": -83.2594, "species[T.Gentoo]": 798.3426, "sex[T.Male]": 528.2987, "island[T.Dream]": -36.0919, "island[T.Torgersen]": -51.1214, "bill_length_mm": 0.0, "bill_depth_mm": 0.0}, "bill_depth_mm,bill_length_mm,species": {"Intercept": -4282.0802, "flipper_length_mm": 20.2264, "species[T.Chinstrap]": -496.7583, "species[T.Gentoo]": 965.1983, "sex[T.Male]": 0.0, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 39.7184, "bill_depth_mm": 141.7714}, "bill_length_mm,island,species": {"Intercept": -3902.8914, "flipper_length_mm": 27.9626, "species[T.Chinstrap]": -750.6152, "species[T.Gentoo]": 73.0795, "sex[T.Male]": 0.0, "island[T.Dream]": -12.7042, "island[T.Torgersen]": -81.4564, "bill_length_mm": 59.8677, "bill_depth_mm": 0.0}, "bill_depth_mm,island,species": {"Intercept": -4524.1201, "flipper_length_mm": 25.9481, "species[T.Chinstrap]": -154.0553, "species[T.Gentoo]": 1257.2865, "sex[T.Male]": 0.0, "island[T.Dream]": -13.9818, "island[T.Torgersen]": -86.7879, "bill_length_mm": 0.0, "bill_depth_mm": 181.5358}, "bill_depth_mm,bill_length_mm,sex": {"Intercept": -2288.465, "flipper_length_mm": 38.8258, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 541.0285, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": -2.3287, "bill_depth_mm": -86.0882}, "bill_length_mm,island,sex": {"Intercept": -3629.5626, "flipper_length_mm": 37.6378, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 390.0554, "island[T.Dream]": -376.1242, "island[T.Torgersen]": -288.3804, "bill_length_mm": 5.8081, "bill_depth_mm": 0.0}, "bill_depth_mm,island,sex": {"Intercept": -2219.2919, "flipper_length_mm": 35.6933, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 499.6413, "island[T.Dream]": -291.6706, "island[T.Torgersen]": -230.0767, "bill_length_mm": 0.0, "bill_depth_mm": -50.0258}, "bill_depth_mm,bill_length_mm,island": {"Intercept": -5707.111, "flipper_length_mm": 42.8952, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 0.0, "island[T.Dream]": -408.5567, "island[T.Torgersen]": -282.3877, "bill_length_mm": 13.7482, "bill_depth_mm": 51.244}, "bill_depth_mm,bill_length_mm,sex,species": {"Intercept": -1460.9946, "flipper_length_mm": 15.9502, "species[T.Chinstrap]": -251.4767, "species[T.Gentoo]": 1014.6267, "sex[T.Male]": 389.8915, "island[T.Dream]": 0.0, "island[T.Torgersen]": 0.0, "bill_length_mm": 18.2044, "bill_depth_mm": 67.2176}, "bill_length_mm,island,sex,species": {"Intercept": -785.5643, "flipper_length_mm": 18.1378, "species[T.Chinstrap]": -293.0454, "species[T.Gentoo]": 676.1027, "sex[T.Male]": 463.6403, "island[T.Dream]": -23.2437, "island[T.Torgersen]": -47.2122, "bill_length_mm": 21.5284, "bill_depth_mm": 0.0}, "bill_depth_mm,island,sex,species": {"Intercept": -1245.426, "flipper_length_mm": 17.8491, "species[T.Chinstrap]": -83.0375, "species[T.Gentoo]": 1121.0743, "sex[T.Male]": 432.9844, "island[T.Dream]": -22.7136, "island[T.Torgersen]": -51.3917, "bill_length_mm": 0.0, "bill_depth_mm": 74.509}, "bill_depth_mm,bill_length_mm,island,species": {"Intercept": -4324.0336, "flipper_length_mm": 20.5783, "species[T.Chinstrap]": -523.6381, "species[T.Gentoo]": 935.718, "sex[T.Male]": 0.0, "island[T.Dream]": 4.9317, "island[T.Torgersen]": -71.3985, "bill_length_mm": 39.599, "bill_depth_mm": 141.8161}, "bill_depth_mm,bill_length_mm,island,sex": {"Intercept": -2115.6162, "flipper_length_mm": 33.9392, "species[T.Chinstrap]": 0.0, "species[T.Gentoo]": 0.0, "sex[T.Male]": 489.9289, "island[T.Dream]": -313.4648, "island[T.Torgersen]": -223.5124, "bill_length_mm": 6.0517, "bill_depth_mm": -50.3385}, "bill_depth_mm,bill_length_mm,island,sex,species": {"Intercept": -1500.0291, "flipper_length_mm": 16.2385, "species[T.Chinstrap]": -260.3063, "species[T.Gentoo]": 987.7614, "sex[T.Male]": 387.2243, "island[T.Dream]": -13.1031, "island[T.Torgersen]": -48.0636, "bill_length_mm": 18.1893, "bill_depth_mm": 67.5754}};
+
+const MEAN_BILL_LENGTH = 43.993, MEAN_BILL_DEPTH = 17.165;
+const PROP = {chinstrap:0.2042, gentoo:0.3574, dream:0.3694, torgersen:0.1411, male:0.5045};
+const GCOLORS = ["#2E6B62", "#C6842E", "#7A5AA8"]; // teal, amber, purple
+const GRAY = "#B9BCB4";
+
+function groupVarFor(act){
+  if(act.has('species')) return 'species';
+  if(act.has('island')) return 'island';
+  if(act.has('sex')) return 'sex';
+  return null;
+}
+
+function computeBaseIntercept(p, act, gv){
+  let base = p['Intercept'] + p['bill_length_mm']*MEAN_BILL_LENGTH + p['bill_depth_mm']*MEAN_BILL_DEPTH;
+  if(gv !== 'species' && act.has('species')){
+    base += p['species[T.Chinstrap]']*PROP.chinstrap + p['species[T.Gentoo]']*PROP.gentoo;
+  }
+  if(gv !== 'island' && act.has('island')){
+    base += p['island[T.Dream]']*PROP.dream + p['island[T.Torgersen]']*PROP.torgersen;
+  }
+  if(gv !== 'sex' && act.has('sex')){
+    base += p['sex[T.Male]']*PROP.male;
+  }
+  return base;
+}
+
+function getLines(act){
+  const key = act.size === 0 ? "none" : Array.from(act).sort().join(",");
+  const p = PARAMS[key];
+  const gv = groupVarFor(act);
+  const base = computeBaseIntercept(p, act, gv);
+  const slope = p['flipper_length_mm'];
+  if(gv === 'species'){
+    return [
+      {label:"Adelie", color:GCOLORS[0], intercept:base, code:"A"},
+      {label:"Chinstrap", color:GCOLORS[1], intercept:base+p['species[T.Chinstrap]'], code:"C"},
+      {label:"Gentoo", color:GCOLORS[2], intercept:base+p['species[T.Gentoo]'], code:"G"},
+    ].map(l=>({...l, slope}));
+  } else if(gv === 'island'){
+    return [
+      {label:"Biscoe", color:GCOLORS[0], intercept:base, code:"B"},
+      {label:"Dream", color:GCOLORS[1], intercept:base+p['island[T.Dream]'], code:"D"},
+      {label:"Torgersen", color:GCOLORS[2], intercept:base+p['island[T.Torgersen]'], code:"T"},
+    ].map(l=>({...l, slope}));
+  } else if(gv === 'sex'){
+    return [
+      {label:"Female", color:GCOLORS[0], intercept:base, code:"F"},
+      {label:"Male", color:GCOLORS[1], intercept:base+p['sex[T.Male]'], code:"M"},
+    ].map(l=>({...l, slope}));
+  } else {
+    return [{label:"전체 펭귄", color:GRAY, intercept:base, slope, code:null}];
+  }
+}
+
+function pointColor(pt, gv){
+  if(gv === 'species') return {A:GCOLORS[0], C:GCOLORS[1], G:GCOLORS[2]}[pt[2]];
+  if(gv === 'island') return {B:GCOLORS[0], D:GCOLORS[1], T:GCOLORS[2]}[pt[4]];
+  if(gv === 'sex') return {F:GCOLORS[0], M:GCOLORS[1]}[pt[3]];
+  return GRAY;
+}
+
+const PX = {left:56, right:16, top:16, bottom:40, w:640, h:400};
+const X_MIN=170, X_MAX=233, Y_MIN=2600, Y_MAX=6400;
+function sx(v){ return PX.left + (v-X_MIN)/(X_MAX-X_MIN) * (PX.w-PX.left-PX.right); }
+function sy(v){ return PX.h-PX.bottom - (v-Y_MIN)/(Y_MAX-Y_MIN) * (PX.h-PX.top-PX.bottom); }
+
+function drawScatter(){
+  const gv = groupVarFor(active);
+  const lines = getLines(active);
+
+  let svg = '';
+  // axes
+  svg += `<line x1="${PX.left}" y1="${PX.h-PX.bottom}" x2="${PX.w-PX.right}" y2="${PX.h-PX.bottom}" stroke="#C7C0AC" stroke-width="1"/>`;
+  svg += `<line x1="${PX.left}" y1="${PX.top}" x2="${PX.left}" y2="${PX.h-PX.bottom}" stroke="#C7C0AC" stroke-width="1"/>`;
+  [180,200,220].forEach(v=>{
+    svg += `<text x="${sx(v)}" y="${PX.h-PX.bottom+18}" font-size="10" fill="#7C8079" text-anchor="middle">${v}</text>`;
+  });
+  [3000,4000,5000,6000].forEach(v=>{
+    svg += `<text x="${PX.left-8}" y="${sy(v)+3}" font-size="10" fill="#7C8079" text-anchor="end">${v}</text>`;
+  });
+  svg += `<text x="${(PX.left+PX.w-PX.right)/2}" y="${PX.h-4}" font-size="11" fill="#7C8079" text-anchor="middle">날개 길이 (mm)</text>`;
+  svg += `<text x="14" y="${PX.top+8}" font-size="11" fill="#7C8079" text-anchor="start">몸무게(g)</text>`;
+
+  // points
+  PTS.forEach(pt=>{
+    const c = pointColor(pt, gv);
+    svg += `<circle cx="${sx(pt[0]).toFixed(1)}" cy="${sy(pt[1]).toFixed(1)}" r="2.6" fill="${c}" fill-opacity="0.55"/>`;
+  });
+
+  // lines
+  lines.forEach(l=>{
+    const x1=X_MIN, x2=X_MAX;
+    const y1=l.intercept+l.slope*x1, y2=l.intercept+l.slope*x2;
+    svg += `<line x1="${sx(x1).toFixed(1)}" y1="${sy(y1).toFixed(1)}" x2="${sx(x2).toFixed(1)}" y2="${sy(y2).toFixed(1)}" stroke="${l.color}" stroke-width="2.6"/>`;
+  });
+
+  document.getElementById('scatterSvg').innerHTML = svg;
+
+  // legend
+  const legend = document.getElementById('scatterLegend');
+  legend.innerHTML = lines.map(l=>`
+    <span class="legend-item"><span class="legend-line" style="background:${l.color};"></span>${l.label} (기울기 ${l.slope.toFixed(1)})</span>
+  `).join('');
+
+  // note
+  const noteEl = document.getElementById('scatterNote');
+  const extras = Array.from(active).filter(k=>{
+    if(gv==='species') return k!=='species';
+    if(gv==='island') return k!=='island';
+    if(gv==='sex') return k!=='sex';
+    return false;
+  });
+  if(extras.length>0){
+    noteEl.textContent = `선은 ${extras.join(', ')}을(를) 표본 평균/비율로 고정한 상태에서 그린 것이다.`;
+  } else {
+    noteEl.textContent = '';
+  }
+}
+
+
+const btnList = document.getElementById('btnList');
+vars.forEach(v => {
+  const btn = document.createElement('button');
+  btn.className = 'var-btn';
+  btn.dataset.key = v.key;
+  btn.innerHTML = `<span class="chk">✓</span><span><span class="vname">${v.name}</span><span class="vdesc">${v.desc}</span></span>`;
+  btn.addEventListener('click', () => toggle(v.key, btn));
+  btnList.appendChild(btn);
+});
+
+function lookupKey(){
+  return active.size === 0 ? "none" : Array.from(active).sort().join(",");
+}
+
+function toggle(key, btn){
+  if(active.has(key)){ active.delete(key); btn.classList.remove('active'); }
+  else{ active.add(key); btn.classList.add('active'); }
+  render();
+}
+
+function render(){
+  const key = lookupKey();
+  const data = results[key];
+  const diff = +(data.r2 - lastR2).toFixed(4);
+
+  document.getElementById('r2num').textContent = data.r2.toFixed(3);
+  document.getElementById('adjR2').textContent = data.adj_r2.toFixed(3);
+  document.getElementById('kVal').textContent = data.k;
+
+  const fill = document.getElementById('fill');
+  fill.style.width = (data.r2*100) + '%';
+  fill.classList.toggle('increased', diff > 0.0001);
+
+  const numEl = document.getElementById('r2num');
+  numEl.classList.toggle('up', diff > 0.0001);
+
+  const diffVal = document.getElementById('diffVal');
+  if(diff > 0.0001){
+    diffVal.textContent = '+' + diff.toFixed(4);
+    diffVal.className = 'diff-val pos mono';
+  } else if (diff < -0.0001){
+    diffVal.textContent = diff.toFixed(4);
+    diffVal.className = 'diff-val mono';
+    diffVal.style.color = '#B0503F';
+  } else {
+    diffVal.textContent = active.size === 0 ? '—' : '±0.0000';
+    diffVal.className = 'diff-val zero mono';
+  }
+
+  // formula
+  const terms = ['flipper_length_mm', ...Array.from(active)];
+  document.getElementById('formulaBox').innerHTML =
+    'body_mass_g ~ ' + terms.map(t => `<span class="fkey">${t}</span>`).join(' + ');
+
+  // dynamic note
+  const noteEl = document.getElementById('dynamicNote');
+  if(active.size === 0){
+    noteEl.textContent = "아직 아무 변수도 추가하지 않았다 — 왼쪽에서 하나 눌러보자.";
+  } else if (key === "bill_depth_mm,bill_length_mm,island,sex,species"){
+    noteEl.innerHTML = "모든 변수를 다 넣었다. R²=0.875 — 종+성별만 넣었을 때(0.867)와 큰 차이가 없다. <strong>변수 개수를 늘린다고 항상 크게 좋아지진 않는다.</strong>";
+  } else if (key === "sex,species"){
+    noteEl.innerHTML = "종과 성별만 넣었는데 벌써 R²=0.867. <strong>이 두 변수가 가장 효율적인 조합</strong>이다 — 날개길이의 기울기도 49.69 → 20.02로 크게 바뀐다 (교란변수 효과가 분리됨).";
+  } else if (active.has('island') && active.has('species')){
+    noteEl.innerHTML = "island와 species를 같이 넣었다. island는 species와 정보가 많이 겹쳐서(섬마다 사는 종이 거의 정해져 있음), 혼자 넣을 때만큼 R²를 못 올린다.";
+  } else if (diff > 0.03){
+    noteEl.innerHTML = `이 변수가 R²를 크게(+${diff.toFixed(3)}) 끌어올렸다 — 몸무게 설명에 새로운 정보를 주고 있다는 뜻이다.`;
+  } else if (diff < 0.005){
+    noteEl.innerHTML = `이 조합에서는 R² 변화가 작다(${diff>=0?'+':''}${diff.toFixed(4)}) — 이미 들어있는 변수와 겹치는 정보이거나, 몸무게와 관계가 약한 변수일 수 있다.`;
+  } else {
+    noteEl.innerHTML = `R²가 ${diff>0?'+':''}${diff.toFixed(4)} 만큼 변했다.`;
+  }
+
+  lastR2 = data.r2;
+
+  // 기울기 패널 업데이트 (추가)
+  const SLOPE_MAX = 55;
+  const slopeFill = document.getElementById('slopeFill');
+  const slopeVal = document.getElementById('slopeVal');
+  const slopeExplain = document.getElementById('slopeExplain');
+  const baseSlope = results['none'].slope;
+
+  slopeFill.style.width = (data.slope / SLOPE_MAX * 100) + '%';
+  slopeVal.innerHTML = data.slope.toFixed(2) + '<span class="unit">g/mm</span>';
+  const shrunk = data.slope < baseSlope - 1;
+  slopeFill.classList.toggle('shrunk', shrunk);
+  slopeVal.style.color = shrunk ? '#B0503F' : 'var(--ink)';
+
+  const shrinkPct = Math.round((1 - data.slope / baseSlope) * 100);
+  if(active.size === 0){
+    slopeExplain.innerHTML = `아직 변수가 없다 — 기울기 ${baseSlope.toFixed(2)}는 날개길이 하나만 봤을 때의 값이다. 여기엔 다른 변수(종, 성별 등)의 효과가 섞여 있다.`;
+  } else if(active.has('species') && active.has('sex')){
+    slopeExplain.innerHTML = `기울기가 <strong>${baseSlope.toFixed(2)} → ${data.slope.toFixed(2)}</strong>로 약 <strong>${shrinkPct}% 줄었다.</strong> 원래 기울기 안에 섞여 있던 "종·성별에 따른 몸집 차이" 효과가 분리되어, 날개길이만의 순수한 효과가 드러난 것이다.`;
+  } else if(shrinkPct > 15){
+    slopeExplain.innerHTML = `기울기가 ${baseSlope.toFixed(2)} → ${data.slope.toFixed(2)}로 꽤 줄었다(${shrinkPct}%↓). 이 변수가 날개길이와 겹치는 정보(교란 요인)를 일부 갖고 있었다는 뜻이다.`;
+  } else if(shrinkPct <= 3 && shrinkPct >= -3){
+    slopeExplain.innerHTML = `기울기가 거의 그대로다(${data.slope.toFixed(2)}). 이 변수는 날개길이와 겹치는 정보가 적어서, 날개길이의 순수한 효과를 크게 건드리지 않는다.`;
+  } else {
+    slopeExplain.innerHTML = `기울기가 ${baseSlope.toFixed(2)} → ${data.slope.toFixed(2)}로 변했다(${shrinkPct}%).`;
+  }
+
+  drawScatter();
+}
+
+render();
+</script>
+</body>
+</html>

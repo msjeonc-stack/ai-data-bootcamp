@@ -225,7 +225,7 @@
       ✅ "이 기사에서 A와 B 중 무엇을 밀어야 하는가" → 개별 실험의 카이제곱 결과로 판단 가능하다.<br>
       ❌ "다음 기사는 어떤 스타일의 헤드라인으로 써야 하는가" → 이 분석으로는 알 수 없다. 헤드라인 문구 자체(길이, 질문형 여부, 감정 단어 등)를 별도로 분석해야 하는 다른 문제다.
     </div>
-    <p>또한 유의성과 효과크기는 다른 이야기다(FIG. 4). 통계적으로 유의한 실험 중에도 실제 CTR 격차가 1%p 미만인 경우가 다수이며, 이는 "테스트를 할 가치가 있다"는 것이 "모든 테스트 결과가 실무적으로 크게 중요하다"는 뜻은 아니라는 점을 보여준다.</p>
+    <p>개별 실험 하나만 보면, "유의하다"고 "차이가 크다"는 뜻은 아니었다(FIG. 4에서 유의해도 격차가 1%p도 안 되는 점이 많았던 것처럼). 하지만 전체 4,871개를 모아 보면, 우연이라면 5%만 유의해야 하는데 실제로는 그보다 훨씬 많이(엄격하게 봐도 10%, 관대하게 봐도 45%) 유의했다. 즉 헤드라인 하나하나의 효과는 작아도, "헤드라인을 테스트해서 더 나은 걸 남기는 행위" 자체는 우연이 아니라 실제로 클릭률을 개선한다는 뜻이다. 다만 "58% 상승!" 같은 개별 결과를 볼 때는, 그 상승이 실제로 몇 %p인지 함께 봐야 과장 없이 해석할 수 있다.</p>
   </section>
 
   <footer>
@@ -335,7 +335,7 @@ new Chart(document.getElementById('chartVolcano'), {
       {label:'BH 보정 후 유의하지 않음', data:ptsNotSig, backgroundColor:'rgba(154,161,181,0.35)', pointRadius:2.5},
       {label:'BH 보정 후 유의함', data:ptsSig, backgroundColor:'rgba(200,29,37,0.55)', pointRadius:2.5},
       {label:'우리 메인 실험', data:[{x:DATA.main.ctr_gap, y:-Math.log10(DATA.main.p)}],
-       backgroundColor: GOLD, pointStyle:'star', pointRadius:11, borderColor: INK, borderWidth:1}
+       backgroundColor: GOLD, pointStyle:'star', pointRadius:16, pointHoverRadius:18, borderColor: INK, borderWidth:1.5}
     ]
   },
   options:{
